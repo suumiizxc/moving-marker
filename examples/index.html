@@ -1,45 +1,107 @@
-<!DOCTYPE html>
-
 <html>
-
 <head>
-    <title> Leaflet.MovingMarker Demo Page </title>
+	 <!-- Make sure you put this AFTER Leaflet's CSS -->
+     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
+     integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM="
+     crossorigin=""></script>
+     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+     integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI="
+     crossorigin=""/>
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.5.1/jquery.min.js" integrity="sha512-P4RKBldxaN4FsYfnJ90HuaIM8EU80A4orv3u/PeD3GgOvZQezXmlOrJlEK8fhVmEwt3HdWXvDbEdS6bkb1nXSA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-    <!-- META INFORMATION -->
+     <script src="Leaflet.AxesGrid.js"></script>
 
-    <meta charset="UTF-8">
-    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-
-    <meta name="description" content="Leaflet plugin to animate marker !">
-    <meta name="keywords" content="Leaflet MovingMarker marker ewoken github animation">
-    <meta name="author" content="Ewoken">
-
-    <!-- CSS -->
-    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
-    <link rel="stylesheet" href="style.css" />
+     <style>
+        html { height: 100%; }
+		body { height: 100%; margin: 0; padding: 0;}
+		.map { width: 100%; height: 100%; }
+		.leaflet-pane, .leaflet-overlay-pane {
+			z-index: unset;
+		}
+     </style>
 
 </head>
-
-
-
 <body>
 
+	<div id="map" class="map"></div>
 
-    <main>
-        <h1> Demo of Leaflet.MovingMarker </h1>
+    <script>
+		function getBounds(w,h) {
 
-        <section>
-            <div id="map">
-            </div>
-        </section>
+	
+            const southWest = [0,0];
+            const northEast = [6,10];
+			return [southWest, northEast];
+		}
 
+		var map = new L.Map('map',{
+			zoomControl:false,
+			crs: L.CRS.Simple,
+			minZoom:5,
+			maxZoom:13}).setView([5,5],7);
 
-    </main>
+		const imageUrl = './floorplan.png';
+    const imageBounds = getBounds(1101,784);
 
-    <script type="text/javascript" src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
-    <script type="text/javascript" src="../MovingMarker.js"></script>
-    <script type="text/javascript" src="script.js"></script>
+		L.imageOverlay(imageUrl, imageBounds).addTo(map);
 
+		map.setMaxBounds(imageBounds);
+		L.axesGrid({
+			showLabel:false,
+			label: {
+				scale: 1,
+				unit: 'm',
+				color: '#404040',
+				size: 13
+			}
+		}).addTo(map);
+
+		const southWest = imageBounds[0];
+		const northEast = imageBounds[1];
+
+        var marker = L.marker([0,0],{
+			icon:L.icon({
+				iconUrl: 'shaman.png',
+				iconSize:     [40, 40], // size of the icon
+				iconAnchor:   [10, 10], // point of the icon which will correspond to marker's location
+			}),
+			draggable:true
+		}).addTo(map);
+
+	</script>
+    
+	<script type="text/javascript">
+                
+        $.ajax({
+            url: "http://localhost:8080/data",
+            type: 'GET',
+            datatype:'jsonp', 
+            success: function(res) {
+                var mydata = JSON.parse(res)['data']
+                console.log("data : ", mydata.length);
+                var loopVal = 0;
+                timeout();
+                    function timeout() {
+                        setTimeout(function () {
+                            // 47.921178, 106.915761
+                            // console.log("testing : ", loopVal, " array : ", mydata[loopVal]);
+                            var lat =  mydata[loopVal].y;  
+                            var long = mydata[loopVal].x;
+                            var newLatLong = new L.LatLng(lat, long);
+                            marker.setLatLng(newLatLong);
+                            // map.setView([lat, long], 13)
+                            loopVal++;
+                            timeout();
+                        }, 50);
+                    }
+                
+            },
+            error : function(err) {
+                console.log(err);
+            }
+        });
+
+	</script>
 
 </body>
 </html>
