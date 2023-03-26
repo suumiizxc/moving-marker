@@ -8,8 +8,9 @@
      integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI="
      crossorigin=""/>
      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.5.1/jquery.min.js" integrity="sha512-P4RKBldxaN4FsYfnJ90HuaIM8EU80A4orv3u/PeD3GgOvZQezXmlOrJlEK8fhVmEwt3HdWXvDbEdS6bkb1nXSA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
-     <script src="Leaflet.AxesGrid.js"></script>
+     <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.min.css">
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
+    <script src="http://localhost:8080/get-leaflet"></script>
 
      <style>
         html { height: 100%; }
@@ -27,21 +28,22 @@
 
     <script>
 		function getBounds(w,h) {
-
-	
-            const southWest = [0,0];
-            const northEast = [6,10];
+            const southWest = [-1,-1];
+            const northEast = [6,11];
 			return [southWest, northEast];
 		}
+
+      
 
 		var map = new L.Map('map',{
 			zoomControl:false,
 			crs: L.CRS.Simple,
 			minZoom:5,
-			maxZoom:13}).setView([5,5],7);
+			maxZoom:13}).setView([10,10],6);
 
-		const imageUrl = './floorplan.png';
-    const imageBounds = getBounds(1101,784);
+		// const imageUrl = './floorplan.png';
+        const imageUrl = "http://localhost:8080/get-floor"
+    const imageBounds = getBounds(1200, 800); //1101, 784 
 
 		L.imageOverlay(imageUrl, imageBounds).addTo(map);
 
@@ -57,43 +59,89 @@
 		}).addTo(map);
 
 		const southWest = imageBounds[0];
-		const northEast = imageBounds[1];
+		const northEast = imageBounds[0];
 
-        var marker = L.marker([0,0],{
-			icon:L.icon({
-				iconUrl: 'shaman.png',
-				iconSize:     [40, 40], // size of the icon
-				iconAnchor:   [10, 10], // point of the icon which will correspond to marker's location
-			}),
-			draggable:true
-		}).addTo(map);
+        // var marker = L.marker([0,0],{
+		// 	icon:L.icon({
+		// 		iconUrl: 'shaman.png',
+		// 		iconSize:     [40, 40], // size of the icon
+		// 		iconAnchor:   [10, 10], // point of the icon which will correspond to marker's location
+		// 	}),
+		// 	draggable:true
+		// }).addTo(map);
 
+        // var testPolygon = [
+        //     [8, 11],
+        //     [0, 11],
+        //     [0, 0],
+        //     [8, 0]
+        // ];
+       
 	</script>
     
 	<script type="text/javascript">
+
+    var tags = [];
+    var redArea = [
+            [4, 9],
+            [1, 9],
+            [1, 5],
+            [4, 5]
+        ];
+        var redPolygon = L.polygon(redArea, {color: 'red'}).addTo(map);
+        var greenArea = [
+            [3, 3],
+            [3, 0],
+            [0, 0],
+            [0, 3]
+        ];
+        var greenPolygon = L.polygon(greenArea, {color: 'green'}).addTo(map);
+        
+     
+
+       
+        function checkContain(){
+            if(tags.length != 0){
+                tags.map((val) => {
+                console.log('ID : ', val.ID, ' contains : ', redPolygon.getBounds().contains(val.marker.getLatLng()));
+                if(redPolygon.getBounds().contains(val.marker.getLatLng())) {
+                    toastr.error('Ажилтан ', val.alias, "  аюултай бүсэд орлоо !!! ");
+                }
+                if(greenPolygon.getBounds().contains(val.marker.getLatLng())) {
+                    toastr.success('Ажилтан ', val.alias, "  ногоон бүсэд орлоо !!! ");
+                }
+            }) 
+            }
+            
+            setTimeout(function() { 
+                checkContain();
                 
+            }, 1000);
+        }
+
+
+        checkContain();
+      
+    window.onload = function () {
         $.ajax({
-            url: "http://localhost:8080/data",
+            url: "http://localhost:8080/node-list",
             type: 'GET',
             datatype:'jsonp', 
+            crossDomain: true,
+            // dataType: 'text',
             success: function(res) {
-                var mydata = JSON.parse(res)['data']
-                console.log("data : ", mydata.length);
-                var loopVal = 0;
-                timeout();
-                    function timeout() {
-                        setTimeout(function () {
-                            // 47.921178, 106.915761
-                            // console.log("testing : ", loopVal, " array : ", mydata[loopVal]);
-                            var lat =  mydata[loopVal].y;  
-                            var long = mydata[loopVal].x;
-                            var newLatLong = new L.LatLng(lat, long);
-                            marker.setLatLng(newLatLong);
-                            // map.setView([lat, long], 13)
-                            loopVal++;
-                            timeout();
-                        }, 50);
-                    }
+                console.log()
+                tags = JSON.parse(res)['data'];
+                tags.map((val) => {
+                    val.marker = L.marker([0,0],{
+                        icon:L.icon({
+                            iconUrl: 'http://localhost:8080/get-tag',
+                            iconSize:     [40, 40], // size of the icon
+                            iconAnchor:   [10, 10], // point of the icon which will correspond to marker's location
+                        }),
+                        draggable:true
+                    }).addTo(map);
+                })
                 
             },
             error : function(err) {
@@ -101,6 +149,26 @@
             }
         });
 
+        if (window["WebSocket"]) {
+            conn = new WebSocket("ws://localhost:8080/wsEndpoint");
+            conn.onclose = function (evt) {
+                console.log("Connection closed")
+            };
+            conn.onmessage = function (evt) {
+                var messages = evt.data.split('\n');
+                const resp = JSON.parse(evt.data.replaceAll('$s','"'));
+                
+                var lat =  parseFloat(resp["y"]);  
+                var long = parseFloat(resp["x"]);
+                var newLatLong = new L.LatLng(lat, long);
+                tags.find(item => {return item.address == resp['address']}).marker.setLatLng(newLatLong);
+                // marker.setLatLng(newLatLong);
+                
+            };
+        } else {
+            console.log("FAILED NOT SUPPORT WEBSOCKET");
+        }
+    };
 	</script>
 
 </body>
